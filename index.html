@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini 霓虹戰機</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gemini 霓虹戰機 (觸控版)</title>
     <style>
         body {
             margin: 0;
@@ -12,6 +12,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: white;
             user-select: none; /* 防止選取文字 */
+            touch-action: none; /* 防止手機觸摸滾動 */
         }
         canvas {
             display: block;
@@ -20,7 +21,7 @@
             position: absolute;
             top: 20px;
             left: 20px;
-            pointer-events: none; /* 讓滑鼠可以穿透 UI 操作遊戲 */
+            pointer-events: none;
             z-index: 10;
         }
         h1 {
@@ -34,6 +35,10 @@
             font-size: 40px;
             font-weight: bold;
             margin-top: 5px;
+        }
+        #hp {
+             font-size: 14px; 
+             color: #ff0055;
         }
         #start-screen {
             position: absolute;
@@ -68,6 +73,26 @@
             text-align: center;
             line-height: 1.6;
         }
+        
+        /* 針對手機的虛擬按鈕 */
+        #mobile-fire-button {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(255, 50, 100, 0.6);
+            border: 2px solid #ff0055;
+            color: white;
+            font-size: 18px;
+            line-height: 80px;
+            text-align: center;
+            pointer-events: auto; /* 確保可以點擊 */
+            z-index: 30;
+            display: none; /* 預設隱藏，只在手機或觸控設備顯示 */
+            box-shadow: 0 0 15px #ff0055;
+        }
     </style>
 </head>
 <body>
@@ -75,18 +100,19 @@
     <div id="ui-layer">
         <h1>NEON SHOOTER</h1>
         <div id="score">0</div>
-        <div style="font-size: 14px; color: #aaa;">HP: <span id="hp" style="color:#ff0055">100%</span></div>
+        <div id="hp">HP: 100%</div>
     </div>
 
     <div id="start-screen">
         <h1 style="font-size: 60px; margin-bottom: 40px;">NEON SHOOTER</h1>
         <button onclick="startGame()">開始任務</button>
         <div class="instructions">
-            使用 <b>滑鼠</b> 移動 <br>
-            或是 <b>方向鍵 / WASD</b> 控制 <br>
-            點擊或按下 <b>空白鍵</b> 發射 (自動連射)
+            電腦使用：<b>滑鼠</b> 或 <b>方向鍵/WASD</b><br>
+            手機使用：<b>觸控螢幕拖曳</b>
         </div>
     </div>
+
+    <div id="mobile-fire-button">FIRE</div>
 
     <canvas id="gameCanvas"></canvas>
 
@@ -96,6 +122,7 @@
         const scoreEl = document.getElementById('score');
         const hpEl = document.getElementById('hp');
         const startScreen = document.getElementById('start-screen');
+        const fireButton = document.getElementById('mobile-fire-button');
 
         // 設定畫布大小
         canvas.width = window.innerWidth;
@@ -104,6 +131,7 @@
         let gameRunning = false;
         let score = 0;
         let frames = 0;
+        let isMobile = false; // 新增：判斷是否為手機
 
         // 玩家物件
         const player = {
@@ -115,33 +143,86 @@
             speed: 8
         };
 
-        // 遊戲物件陣列
         let projectiles = [];
         let enemies = [];
         let particles = [];
-
-        // 監聽輸入
         const keys = { w:false, a:false, s:false, d:false, ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false, " ": false };
         let mouse = { x: canvas.width/2, y: canvas.height/2, active: false };
+        let touch = { active: false, x: player.x, y: player.y }; // 新增：觸控追蹤點
 
+        // 偵測是否為手機或觸控設備
+        if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0) {
+            isMobile = true;
+            fireButton.style.display = 'block';
+        }
+
+
+        // --- 鍵盤與滑鼠事件 (電腦版) ---
         window.addEventListener('keydown', (e) => {
-            keys[e.key] = true;
-            mouse.active = false; // 切換回鍵盤模式
+            if (!isMobile) keys[e.key] = true;
+            mouse.active = false; 
         });
-        window.addEventListener('keyup', (e) => keys[e.key] = false);
+        window.addEventListener('keyup', (e) => {
+            if (!isMobile) keys[e.key] = false;
+        });
         window.addEventListener('mousemove', (e) => {
-            mouse.x = e.clientX;
-            mouse.y = e.clientY;
-            mouse.active = true;
+            if (!isMobile) {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+                mouse.active = true;
+            }
         });
-        window.addEventListener('mousedown', () => keys[" "] = true);
-        window.addEventListener('mouseup', () => keys[" "] = false);
+        window.addEventListener('mousedown', () => {
+            if (!isMobile) keys[" "] = true;
+        });
+        window.addEventListener('mouseup', () => {
+            if (!isMobile) keys[" "] = false;
+        });
+
+        // --- 觸控事件 (手機版) ---
+        canvas.addEventListener('touchstart', (e) => {
+            if (gameRunning) {
+                e.preventDefault(); // 防止滾動
+                const rect = canvas.getBoundingClientRect();
+                touch.x = e.touches[0].clientX - rect.left;
+                touch.y = e.touches[0].clientY - rect.top;
+                touch.active = true;
+            }
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            if (gameRunning) {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                touch.x = e.touches[0].clientX - rect.left;
+                touch.y = e.touches[0].clientY - rect.top;
+            }
+        });
+        canvas.addEventListener('touchend', () => {
+             touch.active = false;
+        });
+        
+        // 虛擬 FIRE 按鈕邏輯
+        fireButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys[" "] = true; // 模擬按下空白鍵
+            fireButton.style.background = 'rgba(255, 50, 100, 0.9)';
+        });
+        fireButton.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            keys[" "] = false; // 模擬放開空白鍵
+            fireButton.style.background = 'rgba(255, 50, 100, 0.6)';
+        });
+
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            // 調整玩家初始位置
+            player.x = canvas.width / 2;
+            player.y = canvas.height - 100;
         });
 
-        // --- 類別定義 ---
+        // --- 類別定義 (與 V1.0 相同，省略繪製程式碼) ---
+        // ... Projectile, Enemy, Particle 類別
 
         class Projectile {
             constructor(x, y, velocity) {
@@ -157,7 +238,7 @@
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = '#00ffff';
                 ctx.fill();
-                ctx.shadowBlur = 0; // 重置，避免影響效能太嚴重
+                ctx.shadowBlur = 0; 
             }
             update() {
                 this.draw();
@@ -173,7 +254,7 @@
                 this.radius = radius;
                 this.color = color;
                 this.velocity = velocity;
-                this.hp = Math.ceil(radius / 10); // 越大血越多
+                this.hp = Math.ceil(radius / 10); 
             }
             draw() {
                 ctx.beginPath();
@@ -182,7 +263,7 @@
                 ctx.lineWidth = 3;
                 ctx.stroke();
                 ctx.fillStyle = this.color;
-                ctx.globalAlpha = 0.2; // 半透明填充
+                ctx.globalAlpha = 0.2; 
                 ctx.fill();
                 ctx.globalAlpha = 1.0;
             }
@@ -193,7 +274,6 @@
             }
         }
 
-        // 粒子特效 (爆炸碎片)
         class Particle {
             constructor(x, y, radius, color, velocity) {
                 this.x = x;
@@ -202,7 +282,7 @@
                 this.color = color;
                 this.velocity = velocity;
                 this.alpha = 1;
-                this.friction = 0.98; // 摩擦力，讓碎片慢下來
+                this.friction = 0.98; 
             }
             draw() {
                 ctx.save();
@@ -219,14 +299,13 @@
                 this.velocity.y *= this.friction;
                 this.x += this.velocity.x;
                 this.y += this.velocity.y;
-                this.alpha -= 0.02; // 慢慢消失
+                this.alpha -= 0.02; 
             }
         }
 
-        // --- 遊戲核心邏輯 ---
-
+        // --- 遊戲核心邏輯 (與 V1.0 相同，略過音效、爆炸、產生敵人等) ---
+        
         function spawnEnemies() {
-            // 難度曲線：分數越高，敵人生成越快
             let interval = 100;
             if (score > 1000) interval = 80;
             if (score > 3000) interval = 60;
@@ -234,20 +313,13 @@
 
             if (frames % interval === 0) {
                 const radius = Math.random() * (30 - 10) + 10;
-                let x, y;
-                
-                // 隨機從上方生成
-                x = Math.random() * (canvas.width - radius * 2) + radius;
-                y = -radius;
-
+                let x = Math.random() * (canvas.width - radius * 2) + radius;
+                let y = -radius;
                 const color = `hsl(${Math.random() * 360}, 50%, 50%)`;
                 
-                // 敵人速度
-                const angle = Math.atan2(canvas.height - y, canvas.width/2 - x); 
-                // 簡單的 AI: 稍微往中間偏，而不是直直往下
                 const velocity = {
                     x: (Math.random() - 0.5) * 2,
-                    y: Math.random() * 2 + 1 + (score/5000) // 分數越高越快
+                    y: Math.random() * 2 + 1 + (score/5000)
                 };
 
                 enemies.push(new Enemy(x, y, radius, color, velocity));
@@ -255,7 +327,6 @@
         }
 
         function createExplosion(x, y, color, size) {
-            // 產生爆炸音效 (合成音)
             playSound('explode');
             
             for (let i = 0; i < size * 2; i++) {
@@ -270,7 +341,6 @@
         }
 
         function playSound(type) {
-            // 簡單的 Web Audio API 音效合成
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -302,24 +372,32 @@
             if (!gameRunning) return;
             animationId = requestAnimationFrame(animate);
             
-            // 畫布背景 (製造拖影效果)
             ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製玩家
-            if (mouse.active) {
-                // 滑鼠操控模式：平滑跟隨
+            // --- 玩家移動邏輯更新 ---
+            if (isMobile && touch.active) {
+                // 手機觸控模式：平滑跟隨手指，並限制玩家在畫面下半部
+                const targetY = Math.min(touch.y, canvas.height - 50); // 限制不讓飛機飛太高
+                player.x += (touch.x - player.x) * 0.15;
+                player.y += (targetY - player.y) * 0.15;
+            } else if (!isMobile && mouse.active) {
+                // 電腦滑鼠模式：平滑跟隨滑鼠
                 player.x += (mouse.x - player.x) * 0.1;
                 player.y += (mouse.y - player.y) * 0.1;
-            } else {
-                // 鍵盤操控模式
+            } else if (!isMobile) {
+                 // 電腦鍵盤模式
                 if ((keys.w || keys.ArrowUp) && player.y > player.radius) player.y -= player.speed;
                 if ((keys.s || keys.ArrowDown) && player.y < canvas.height - player.radius) player.y += player.speed;
                 if ((keys.a || keys.ArrowLeft) && player.x > player.radius) player.x -= player.speed;
                 if ((keys.d || keys.ArrowRight) && player.x < canvas.width - player.radius) player.x += player.speed;
             }
+            // 確保玩家不超出邊界
+            player.x = Math.max(player.radius, Math.min(player.x, canvas.width - player.radius));
+            player.y = Math.max(player.radius, Math.min(player.y, canvas.height - player.radius));
+            // --- 玩家移動邏輯更新結束 ---
 
-            // 玩家發光效果
+            // 繪製玩家
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2, false);
             ctx.fillStyle = 'white';
@@ -328,13 +406,13 @@
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // 自動射擊 (每 10 幀一發)
-            if ((keys[" "] || mouse.active) && frames % 8 === 0) {
+            // 自動射擊 (每 8 幀一發)
+            if (keys[" "] && frames % 8 === 0) {
                 projectiles.push(new Projectile(player.x, player.y - 20, {x:0, y:-10}));
                 playSound('shoot');
             }
 
-            // 更新粒子 (爆炸效果)
+            // 更新粒子、子彈、敵人 (碰撞邏輯不變)
             particles.forEach((particle, index) => {
                 if (particle.alpha <= 0) {
                     particles.splice(index, 1);
@@ -343,7 +421,6 @@
                 }
             });
 
-            // 更新子彈
             projectiles.forEach((projectile, index) => {
                 projectile.update();
                 if (projectile.y + projectile.radius < 0) {
@@ -351,7 +428,6 @@
                 }
             });
 
-            // 更新敵人與碰撞偵測
             enemies.forEach((enemy, index) => {
                 enemy.update();
 
@@ -359,13 +435,9 @@
                 projectiles.forEach((projectile, pIndex) => {
                     const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
                     if (dist - enemy.radius - projectile.radius < 1) {
-                        // 爆炸特效
                         createExplosion(projectile.x, projectile.y, enemy.color, 5);
-                        
-                        // 移除子彈
                         setTimeout(() => projectiles.splice(pIndex, 1), 0);
 
-                        // 扣血
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
                             score += 100;
@@ -381,7 +453,7 @@
                 if (distPlayer - enemy.radius - player.radius < 1) {
                     createExplosion(player.x, player.y, 'red', 20);
                     enemies.splice(index, 1);
-                    player.hp -= 20; // 扣血
+                    player.hp -= 20; 
                     hpEl.innerHTML = player.hp + "%";
                     
                     if (player.hp <= 0) {
@@ -389,7 +461,6 @@
                     }
                 }
 
-                // 敵人超出螢幕移除
                 if (enemy.y - enemy.radius > canvas.height) {
                      setTimeout(() => enemies.splice(index, 1), 0);
                 }
@@ -410,16 +481,21 @@
             particles = [];
             scoreEl.innerHTML = '0';
             hpEl.innerHTML = '100%';
+            
+            // 確保觸控點在玩家身上
+            touch.x = player.x;
+            touch.y = player.y;
+
             animate();
         }
 
         function endGame() {
             gameRunning = false;
             startScreen.style.display = 'flex';
-            startScreen.querySelector('h1').innerHTML = `GAME OVER<br><span style="font-size:30px">Score: ${score}</span>`;
+            startScreen.querySelector('h1').innerHTML = `任務失敗<br><span style="font-size:30px">最終得分: ${score}</span>`;
             startScreen.querySelector('button').innerText = "再試一次";
         }
-
+        
     </script>
 </body>
 </html>
