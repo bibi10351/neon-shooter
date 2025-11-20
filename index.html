@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V8.0 (Elite Enemies)</title>
+    <title>Gemini 霓虹戰機 V10.0 (Elite HP Enhancement)</title>
     <style>
-        /* CSS 樣式與 V7.0 保持一致 */
+        /* CSS 樣式與 V9.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
@@ -256,15 +256,15 @@
         }
 
         class Enemy {
-            // V8.0 核心改動 1: 新增 scoreValue 參數
-            constructor(x, y, radius, color, velocity, scoreValue = 100) { 
+            // V10.0: 建構式接收 initialHP 參數，不再自動計算 HP
+            constructor(x, y, radius, color, velocity, scoreValue = 100, initialHP) { 
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
                 this.color = color;
                 this.velocity = velocity;
-                this.hp = Math.ceil(radius / 10);	
-                this.scoreValue = scoreValue; // 儲存這個敵人死亡時應得的分數
+                this.hp = initialHP;	// 直接使用傳入的 HP
+                this.scoreValue = scoreValue; 
             }
             draw() {
                 ctx.beginPath();
@@ -362,26 +362,28 @@
             if (score > 5000) interval = 40;
 
             if (frames % interval === 0) {
-                // V8.0 核心改動 2: 判斷是否為精英敵人
-                const isElite = Math.random() < 0.01; // 1% 機率
+                const isElite = Math.random() < 0.01; 
 
                 let radius;
                 let color;
                 let scoreValue;
                 let velocity;
+                let initialHP; // V10.0: 新增 HP 變數
 
                 if (isElite) {
-                    radius = 45; // 更大
-                    color = '#ffaa00'; // 金黃色
-                    scoreValue = 500; // 高分獎勵
+                    radius = 45; 
+                    color = '#ffaa00'; 
+                    scoreValue = 500; 
+                    initialHP = 15; // V10.0: 精英敵人固定 15 HP
                     velocity = {
-                        x: (Math.random() - 0.5) * 1, // 側向慢
-                        y: Math.random() * 0.5 + 0.5 // 垂直慢
+                        x: (Math.random() - 0.5) * 1, 
+                        y: Math.random() * 0.5 + 0.5 
                     };
                 } else {
                     radius = Math.random() * (30 - 10) + 10;
                     color = `hsl(${Math.random() * 360}, 50%, 50%)`;
-                    scoreValue = 100; // 預設分數
+                    scoreValue = 100; 
+                    initialHP = Math.ceil(radius / 10); // 普通敵人依半徑計算
                     velocity = {
                         x: (Math.random() - 0.5) * 2,
                         y: Math.random() * 2 + 1 + (score/5000)
@@ -391,8 +393,8 @@
                 let x = Math.random() * (canvas.width - radius * 2) + radius;
                 let y = -radius;
                 
-                // 傳入 scoreValue 參數
-                enemies.push(new Enemy(x, y, radius, color, velocity, scoreValue));
+                // V10.0: 傳入 initialHP
+                enemies.push(new Enemy(x, y, radius, color, velocity, scoreValue, initialHP));
             }
         }
 
@@ -484,18 +486,18 @@
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // 自動射擊
+            // V9.0: 射擊邏輯修正為平行雙擊 (保持不變)
             if (frames % 8 === 0) {
                 if (doubleShotActive) {
-                    projectiles.push(new Projectile(player.x - 5, player.y - 20, {x:-1, y:-10}));
-                    projectiles.push(new Projectile(player.x + 5, player.y - 20, {x:1, y:-10}));
+                    projectiles.push(new Projectile(player.x - 7, player.y - 20, {x:0, y:-10})); 
+                    projectiles.push(new Projectile(player.x + 7, player.y - 20, {x:0, y:-10}));
                 } else {
                     projectiles.push(new Projectile(player.x, player.y - 20, {x:0, y:-10}));
                 }
                 playSound('shoot');
             }
 
-            // --- 處理道具 (V7.0 保持不變) ---
+            // --- 處理道具 (保持不變) ---
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const powerUp = powerUps[i];
                 powerUp.update();
@@ -553,7 +555,6 @@
                             }
                             
                             // 敵人死亡
-                            // V8.0 核心改動 3: 使用 enemy.scoreValue 增加分數
                             score += enemy.scoreValue; 
                             scoreEl.innerHTML = score;
                             
