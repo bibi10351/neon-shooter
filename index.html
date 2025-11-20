@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V7.0 (Double Shot PowerUp)</title>
+    <title>Gemini 霓虹戰機 V8.0 (Elite Enemies)</title>
     <style>
-        /* CSS 樣式與 V6.0 保持一致 */
+        /* CSS 樣式與 V7.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
@@ -79,19 +79,18 @@
             color: #ffaa00;
             font-size: 20px;
             margin-top: 20px;
-            margin-bottom: 20px; /* 增加底部空間 */
+            margin-bottom: 20px;
             text-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
         }
-        /* V7.0 新增: 道具計時器樣式 */
         #powerup-timer {
             position: absolute;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             font-size: 20px;
-            color: #ff00ff; /* 紫色霓虹 */
+            color: #ff00ff;
             text-shadow: 0 0 15px #ff00ff;
-            display: none; /* 預設隱藏 */
+            display: none;
             z-index: 10;
         }
         #mobile-fire-button {
@@ -130,7 +129,6 @@
         const hpEl = document.getElementById('hp');
         const startScreen = document.getElementById('start-screen');
         const highScoreDisplayEl = document.getElementById('high-score-display');
-        // V7.0: 抓取道具計時器元素
         const powerUpTimerEl = document.getElementById('powerup-timer');
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -145,10 +143,10 @@
         let highScore = 0;
         const HIGHSCORE_KEY = 'neonShooterHighScore'; 
 
-        // V7.0: 新增道具相關變數
+        // V7.0 道具相關變數
         let powerUps = [];
         let doubleShotActive = false;
-        let powerUpDuration = 5000; // 道具持續時間 5 秒 (5000 毫秒)
+        let powerUpDuration = 5000; 
 
         const player = {
             x: canvas.width / 2,
@@ -234,7 +232,7 @@
         // --- 類別定義 ---
         
         class Projectile {
-            // V7.0: 新增 Projectile 類別 (保持不變)
+            // (保持不變)
             constructor(x, y, velocity) {
                 this.x = x;
                 this.y = y;
@@ -258,14 +256,15 @@
         }
 
         class Enemy {
-            // V7.0: 新增 Enemy 類別 (保持不變)
-            constructor(x, y, radius, color, velocity) {
+            // V8.0 核心改動 1: 新增 scoreValue 參數
+            constructor(x, y, radius, color, velocity, scoreValue = 100) { 
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
                 this.color = color;
                 this.velocity = velocity;
                 this.hp = Math.ceil(radius / 10);	
+                this.scoreValue = scoreValue; // 儲存這個敵人死亡時應得的分數
             }
             draw() {
                 ctx.beginPath();
@@ -291,7 +290,7 @@
         }
 
         class Particle {
-            // V7.0: 新增 Particle 類別 (保持不變)
+            // (保持不變)
             constructor(x, y, radius, color, velocity) {
                 this.x = x;
                 this.y = y;
@@ -320,15 +319,15 @@
             }
         }
         
-        // V7.0 新增: PowerUp 類別
         class PowerUp {
+            // (保持不變)
             constructor(x, y, type) {
                 this.x = x;
                 this.y = y;
                 this.radius = 12;
-                this.type = type; // e.g., 'doubleShot'
-                this.color = '#ff00ff'; // 紫色
-                this.velocity = { x: 0, y: 1.5 }; // 緩慢下降
+                this.type = type;
+                this.color = '#ff00ff';
+                this.velocity = { x: 0, y: 1.5 };
             }
 
             draw() {
@@ -340,12 +339,11 @@
                 ctx.fill();
                 ctx.shadowBlur = 0;
 
-                // 繪製道具文字
                 ctx.fillStyle = 'white';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.font = 'bold 10px sans-serif';
-                ctx.fillText('X2', this.x, this.y); // 雙重射擊標誌
+                ctx.fillText('X2', this.x, this.y);
             }
 
             update() {
@@ -364,17 +362,37 @@
             if (score > 5000) interval = 40;
 
             if (frames % interval === 0) {
-                const radius = Math.random() * (30 - 10) + 10;
+                // V8.0 核心改動 2: 判斷是否為精英敵人
+                const isElite = Math.random() < 0.01; // 1% 機率
+
+                let radius;
+                let color;
+                let scoreValue;
+                let velocity;
+
+                if (isElite) {
+                    radius = 45; // 更大
+                    color = '#ffaa00'; // 金黃色
+                    scoreValue = 500; // 高分獎勵
+                    velocity = {
+                        x: (Math.random() - 0.5) * 1, // 側向慢
+                        y: Math.random() * 0.5 + 0.5 // 垂直慢
+                    };
+                } else {
+                    radius = Math.random() * (30 - 10) + 10;
+                    color = `hsl(${Math.random() * 360}, 50%, 50%)`;
+                    scoreValue = 100; // 預設分數
+                    velocity = {
+                        x: (Math.random() - 0.5) * 2,
+                        y: Math.random() * 2 + 1 + (score/5000)
+                    };
+                }
+
                 let x = Math.random() * (canvas.width - radius * 2) + radius;
                 let y = -radius;
-                const color = `hsl(${Math.random() * 360}, 50%, 50%)`;
                 
-                const velocity = {
-                    x: (Math.random() - 0.5) * 2,
-                    y: Math.random() * 2 + 1 + (score/5000)
-                };
-
-                enemies.push(new Enemy(x, y, radius, color, velocity));
+                // 傳入 scoreValue 參數
+                enemies.push(new Enemy(x, y, radius, color, velocity, scoreValue));
             }
         }
 
@@ -392,24 +410,18 @@
             }
         }
         
-        // V7.0 新增: 啟動雙重射擊效果
         function activateDoubleShot() {
             if (doubleShotActive) {
-                // 如果已經啟動，清除舊的計時器，重新計算時間
                 clearTimeout(window.powerUpTimeout);
             }
             
             doubleShotActive = true;
             powerUpTimerEl.style.display = 'block';
 
-            // 設定道具結束的計時器
             window.powerUpTimeout = setTimeout(() => {
                 doubleShotActive = false;
                 powerUpTimerEl.style.display = 'none';
             }, powerUpDuration);
-
-            // 播放一個簡短的增益音效 (可選)
-            // playSound('powerup'); 
         }
 
         function playSound(type) {
@@ -472,44 +484,38 @@
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // V7.0: 射擊邏輯調整 - 雙重射擊
+            // 自動射擊
             if (frames % 8 === 0) {
                 if (doubleShotActive) {
-                    // 發射兩顆子彈，向兩側稍微偏移
                     projectiles.push(new Projectile(player.x - 5, player.y - 20, {x:-1, y:-10}));
                     projectiles.push(new Projectile(player.x + 5, player.y - 20, {x:1, y:-10}));
                 } else {
-                    // 單顆子彈 (原始邏輯)
                     projectiles.push(new Projectile(player.x, player.y - 20, {x:0, y:-10}));
                 }
                 playSound('shoot');
             }
 
-            // --- 處理道具 ---
-            // 1. 更新道具位置並檢查是否越界
+            // --- 處理道具 (V7.0 保持不變) ---
             for (let i = powerUps.length - 1; i >= 0; i--) {
                 const powerUp = powerUps[i];
                 powerUp.update();
 
-                // 如果越界，則移除
                 if (powerUp.y - powerUp.radius > canvas.height) {
                     powerUps.splice(i, 1);
                     continue;
                 }
 
-                // 2. 檢查道具是否被玩家拾取
                 const distPlayer = Math.hypot(player.x - powerUp.x, player.y - powerUp.y);
                 if (distPlayer - player.radius - powerUp.radius < 1) {
-                    // 拾取! 啟動效果
                     if (powerUp.type === 'doubleShot') {
                         activateDoubleShot();
                     }
-                    powerUps.splice(i, 1); // 移除道具
+                    powerUps.splice(i, 1);
                 }
             }
 
 
-            // 更新粒子 (V5.0 保持不變)
+            // 更新粒子 (保持不變)
             for (let i = particles.length - 1; i >= 0; i--) {
                 const particle = particles[i];
                 if (particle.alpha <= 0) {
@@ -519,7 +525,7 @@
                 }
             }
             
-            // 子彈與敵人的碰撞處理 (V5.0/V6.0 保持不變)
+            // 子彈與敵人的碰撞處理
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const projectile = projectiles[i];
                 projectile.update();
@@ -541,14 +547,16 @@
 
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
-                            // V7.0 核心邏輯: 敵人死亡時機率掉落道具
-                            if (Math.random() < 0.2) { // 20% 機率掉落
+                            // 敵人死亡時機率掉落道具 (V7.0)
+                            if (Math.random() < 0.2) { 
                                 powerUps.push(new PowerUp(enemy.x, enemy.y, 'doubleShot'));
                             }
                             
                             // 敵人死亡
-                            score += 100;
+                            // V8.0 核心改動 3: 使用 enemy.scoreValue 增加分數
+                            score += enemy.scoreValue; 
                             scoreEl.innerHTML = score;
+                            
                             createExplosion(enemy.x, enemy.y, enemy.color, 15);
                             enemies.splice(j, 1);
                         }
@@ -557,7 +565,7 @@
                 }
             }
 
-            // 更新敵人 (V5.0/V6.0 保持不變)
+            // 更新敵人 (保持不變)
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
                 enemy.update();
@@ -592,11 +600,11 @@
             enemies = [];
             projectiles = [];
             particles = [];
-            powerUps = []; // V7.0: 重設道具列表
+            powerUps = []; 
             
-            doubleShotActive = false; // V7.0: 確保道具效果重置
+            doubleShotActive = false; 
             powerUpTimerEl.style.display = 'none';
-            if (window.powerUpTimeout) clearTimeout(window.powerUpTimeout); // 清除舊的計時器
+            if (window.powerUpTimeout) clearTimeout(window.powerUpTimeout); 
 
             scoreEl.innerHTML = '0';
             hpEl.innerHTML = '100%';
@@ -612,7 +620,6 @@
         function endGame() {
             gameRunning = false;
             
-            // V7.0: 清除道具計時器 (如果遊戲結束了)
             if (window.powerUpTimeout) clearTimeout(window.powerUpTimeout); 
             powerUpTimerEl.style.display = 'none';
 
