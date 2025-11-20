@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V11.0 (Balance Update)</title>
+    <title>Gemini 霓虹戰機 V12.0 (Final Balance)</title>
     <style>
-        /* CSS 樣式與 V10.0 保持一致 */
+        /* CSS 樣式與 V11.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
@@ -146,7 +146,9 @@
         // V7.0 道具相關變數
         let powerUps = [];
         let doubleShotActive = false;
-        let powerUpDuration = 10000; // V11.0: 雙重射擊持續時間改為 10 秒 (10000ms)
+        let powerUpDuration = 10000; // V11.0: 雙重射擊持續時間 10 秒
+        
+        let animationId; // 追蹤動畫幀 ID
 
         const player = {
             x: canvas.width / 2,
@@ -184,7 +186,7 @@
             return false;
         }
 
-        // --- 鍵盤與滑鼠事件 --- (保持不變)
+        // --- 鍵盤與滑鼠事件 --- (為 V13.0 暫停功能預留 Space 鍵)
         window.addEventListener('keydown', (e) => {
             if (!isMobile) keys[e.key] = true;
             mouse.active = false;	
@@ -362,7 +364,7 @@
             if (score > 5000) interval = 40;
 
             if (frames % interval === 0) {
-                const isElite = Math.random() < 0.02; // V11.0: 精英出現率提高 2 倍 (2%)
+                const isElite = Math.random() < 0.02; // V11.0: 精英出現率 2%
 
                 let radius;
                 let color;
@@ -373,8 +375,8 @@
                 if (isElite) {
                     radius = 45; 
                     color = '#ffaa00'; 
-                    scoreValue = 500; 
-                    initialHP = 150; // V11.0: 精英敵人 HP 提高 10 倍 (150 HP)
+                    scoreValue = 1000; // V12.0: 精英得分 1000 分
+                    initialHP = 30; // V12.0: 精英敵人 HP 30
                     velocity = {
                         x: (Math.random() - 0.5) * 1, 
                         y: Math.random() * 0.5 + 0.5 
@@ -549,7 +551,7 @@
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
                             // 敵人死亡時機率掉落道具 
-                            if (Math.random() < 0.05) { // V11.0: 雙重射擊掉落率減為 5%
+                            if (Math.random() < 0.05) { // V11.0: 雙重射擊掉落率 5%
                                 powerUps.push(new PowerUp(enemy.x, enemy.y, 'doubleShot'));
                             }
                             
