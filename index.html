@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V4.0 (自動射擊)</title>
+    <title>Gemini 霓虹戰機 V5.0 (Bug Fix)</title>
     <style>
+        /* CSS 樣式與 V4.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
             background-color: #050505;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: white;
-            user-select: none; /* 防止選取文字 */
-            touch-action: none; /* 防止手機觸摸滾動 */
+            user-select: none;
+            touch-action: none;
         }
         canvas {
             display: block;
@@ -39,7 +40,7 @@
         #hp {
             font-size: 14px; 
             color: #ff0055;
-            text-shadow: 0 0 5px rgba(255, 0, 85, 0.5); /* 增加 HP 霓虹效果 */
+            text-shadow: 0 0 5px rgba(255, 0, 85, 0.5);
         }
         #start-screen {
             position: absolute;
@@ -74,8 +75,6 @@
             text-align: center;
             line-height: 1.6;
         }
-        
-        /* V4.0: 移除虛擬 FIRE 按鈕的樣式，讓畫面更乾淨 */
         #mobile-fire-button {
              display: none !important; 
         }
@@ -108,8 +107,10 @@
         const scoreEl = document.getElementById('score');
         const hpEl = document.getElementById('hp');
         const startScreen = document.getElementById('start-screen');
-        const fireButton = document.getElementById('mobile-fire-button');
 
+        // V5.0 FIX 2: 將 AudioContext 放在全域，只創建一次
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
         // 設定畫布大小
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -119,7 +120,6 @@
         let frames = 0;
         let isMobile = false;
 
-        // 玩家物件
         const player = {
             x: canvas.width / 2,
             y: canvas.height - 100,
@@ -132,13 +132,12 @@
         let projectiles = [];
         let enemies = [];
         let particles = [];
-        const keys = { w:false, a:false, s:false, d:false, ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false }; // V4.0: 移除空格鍵，因為改為自動射擊
+        const keys = { w:false, a:false, s:false, d:false, ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false }; 
         let mouse = { x: canvas.width/2, y: canvas.height/2, active: false };
         let touch = { active: false, x: player.x, y: player.y };
 
         if ('ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0) {
             isMobile = true;
-            // V4.0: 這裡不再顯示 fireButton
         }
 
 
@@ -157,9 +156,8 @@
                 mouse.active = true;
             }
         });
-        // V4.0: 移除 mousedown 和 mouseup 射擊事件
         
-        // --- 觸控事件 (移動邏輯不變) ---
+        // --- 觸控事件 ---
         canvas.addEventListener('touchstart', (e) => {
             if (gameRunning) {
                 e.preventDefault();
@@ -181,8 +179,6 @@
             touch.active = false;
         });
         
-        // V4.0: 移除虛擬 FIRE 按鈕的事件監聽器
-
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
@@ -190,7 +186,7 @@
             player.y = canvas.height - 100;
         });
 
-        // --- 類別定義 (與 V2.0 相同) ---
+        // --- 類別定義 ---
         
         class Projectile {
             constructor(x, y, velocity) {
@@ -235,7 +231,6 @@
                 ctx.fill();
                 ctx.globalAlpha = 1.0;
                 
-                // V4.0: 增加敵人的霓虹光暈效果 (與子彈/分數一致)
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = this.color;
                 ctx.stroke();
@@ -315,7 +310,7 @@
         }
 
         function playSound(type) {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // V5.0 FIX 2: 直接使用全域 audioCtx，不再重複創建
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
@@ -349,7 +344,7 @@
             ctx.fillStyle = 'rgba(5, 5, 5, 0.2)';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // --- 玩家移動邏輯 ---
+            // --- 玩家移動邏輯不變 ---
             if (isMobile && touch.active) {
                 const targetY = Math.min(touch.y, canvas.height - 50);
                 player.x += (touch.x - player.x) * 0.15;
@@ -365,7 +360,6 @@
             }
             player.x = Math.max(player.radius, Math.min(player.x, canvas.width - player.radius));
             player.y = Math.max(player.radius, Math.min(player.y, canvas.height - player.radius));
-            // --- 玩家移動邏輯結束 ---
 
             // 繪製玩家 (保持霓虹效果)
             ctx.beginPath();
@@ -376,53 +370,69 @@
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            // V4.0: 自動射擊 (每 8 幀一發) - 無論是鍵盤、滑鼠還是觸控，只要遊戲運行就自動射擊
+            // 自動射擊
             if (frames % 8 === 0) {
                 projectiles.push(new Projectile(player.x, player.y - 20, {x:0, y:-10}));
+                // V5.0: 修正音效 Bug 後，射擊音效將穩定輸出
                 playSound('shoot');
             }
 
-            // 更新所有遊戲元素 (粒子、子彈、敵人) - 邏輯不變
-            particles.forEach((particle, index) => {
+            // 更新粒子 (使用倒序迴圈進行安全刪除)
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const particle = particles[i];
                 if (particle.alpha <= 0) {
-                    particles.splice(index, 1);
+                    particles.splice(i, 1);
                 } else {
                     particle.update();
                 }
-            });
-
-            projectiles.forEach((projectile, index) => {
+            }
+            
+            // V5.0 FIX 1: 修正幽靈擊殺，使用安全的倒序迴圈進行子彈與敵人的碰撞處理
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const projectile = projectiles[i];
                 projectile.update();
+                
+                // 檢查是否超出邊界
                 if (projectile.y + projectile.radius < 0) {
-                    setTimeout(() => projectiles.splice(index, 1), 0);
+                    projectiles.splice(i, 1);
+                    continue; 
                 }
-            });
 
-            enemies.forEach((enemy, index) => {
-                enemy.update();
-
-                // 1. 子彈打中敵人
-                projectiles.forEach((projectile, pIndex) => {
+                // 檢查子彈與敵人的碰撞
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
                     const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
+                    
                     if (dist - enemy.radius - projectile.radius < 1) {
+                        // 1. 命中處理
                         createExplosion(projectile.x, projectile.y, enemy.color, 5);
-                        setTimeout(() => projectiles.splice(pIndex, 1), 0);
+                        projectiles.splice(i, 1); // 刪除子彈
+                        i--; // 由於刪除了子彈，確保外層迴圈索引不會跳過下一個元素
 
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
+                            // 敵人死亡
                             score += 100;
                             scoreEl.innerHTML = score;
                             createExplosion(enemy.x, enemy.y, enemy.color, 15);
-                            setTimeout(() => enemies.splice(index, 1), 0);
+                            enemies.splice(j, 1); // 刪除敵人
                         }
+                        // 子彈已摧毀，跳出內層敵人迴圈，檢查下一顆子彈
+                        break;
                     }
-                });
+                }
+            }
 
-                // 2. 敵人撞到玩家
+            // 更新敵人 (碰撞玩家與越界處理)
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                enemy.update();
+
+                // 檢查敵人撞到玩家
                 const distPlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
                 if (distPlayer - enemy.radius - player.radius < 1) {
                     createExplosion(player.x, player.y, 'red', 20);
-                    enemies.splice(index, 1);
+                    enemies.splice(i, 1); // 刪除敵人
                     player.hp -= 20;	
                     hpEl.innerHTML = player.hp + "%";
                     
@@ -431,10 +441,11 @@
                     }
                 }
 
+                // 檢查敵人是否越界
                 if (enemy.y - enemy.radius > canvas.height) {
-                    setTimeout(() => enemies.splice(index, 1), 0);
+                    enemies.splice(i, 1); // 刪除敵人
                 }
-            });
+            }
 
             spawnEnemies();
             frames++;
