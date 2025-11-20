@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V15.0 (穩定版 + 打擊回饋)</title>
+    <title>Gemini 霓虹戰機 V16.0 (Bug Fix)</title>
     <style>
-        /* CSS 樣式與 V12.0 保持一致 */
+        /* CSS 樣式與 V15.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
@@ -129,6 +129,7 @@
         const highScoreDisplayEl = document.getElementById('high-score-display');
         const powerUpTimerEl = document.getElementById('powerup-timer');
 
+        // V16.0 Bug Fix: 重新啟用 AudioContext
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         canvas.width = window.innerWidth;
@@ -144,7 +145,7 @@
 
         let powerUps = [];
         let doubleShotActive = false;
-        let powerUpDuration = 10000; // V12.0: 10秒
+        const powerUpDuration = 10000; 
 
         const player = {
             x: canvas.width / 2,
@@ -227,7 +228,36 @@
             player.y = canvas.height - 100;
         });
 
-        // --- 類別定義 (完整，確保穩定) ---
+        // V16.0 Bug Fix: 重新實作完整的 playSound 函式
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                // 嘗試在使用者互動後恢復音訊
+                audioCtx.resume();
+            }
+
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); 
+            
+            if (type === 'shoot') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(500, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                oscillator.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'hit') {
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(200, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+                oscillator.stop(audioCtx.currentTime + 0.05);
+            }
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+        }
+
+        // --- 類別定義 ---
         class Projectile {
             constructor(x, y, velocity) {
                 this.x = x;
@@ -238,13 +268,15 @@
             }
 
             draw() {
+                // V16.0 Bug Fix: 加入 ctx.save/restore
+                ctx.save();
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
                 ctx.fillStyle = this.color;
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = this.color;
                 ctx.fill();
-                ctx.shadowBlur = 0;
+                ctx.restore();
             }
 
             update() {
@@ -266,13 +298,15 @@
             }
 
             draw() {
+                // V16.0 Bug Fix: 加入 ctx.save/restore
+                ctx.save();
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
                 ctx.fillStyle = this.color;
                 ctx.shadowBlur = 10;
                 ctx.shadowColor = this.color;
                 ctx.fill();
-                ctx.shadowBlur = 0;
+                ctx.restore();
             }
 
             update() {
@@ -294,13 +328,14 @@
             }
 
             draw() {
+                // V16.0 Bug Fix: ctx.save/restore 已存在，確保其正確性
                 ctx.save();
                 ctx.globalAlpha = this.alpha;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
                 ctx.fillStyle = this.color;
                 ctx.fill();
-                ctx.restore();
+                ctx.restore(); // restore globalAlpha
             }
 
             update() {
@@ -324,6 +359,8 @@
             }
 
             draw() {
+                // V16.0 Bug Fix: 加入 ctx.save/restore
+                ctx.save();
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
                 ctx.fillStyle = this.color;
@@ -337,6 +374,7 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('⚡', this.x, this.y);
+                ctx.restore();
             }
 
             update() {
@@ -355,7 +393,7 @@
             if (score > 5000) interval = 40;
 
             if (frames % interval === 0) {
-                const isElite = Math.random() < 0.02; // V12.0: 精英出現率 2%
+                const isElite = Math.random() < 0.02; 
 
                 let radius;
                 let color;
@@ -366,8 +404,8 @@
                 if (isElite) {
                     radius = 45; 
                     color = '#ffaa00'; 
-                    scoreValue = 1000; // V12.0: 精英得分 1000 分
-                    initialHP = 30; // V12.0: 精英敵人 HP 30
+                    scoreValue = 1000; 
+                    initialHP = 30; 
                     velocity = {
                         x: (Math.random() - 0.5) * 1, 
                         y: Math.random() * 0.5 + 0.5 
@@ -414,10 +452,8 @@
             window.powerUpTimeout = setTimeout(() => {
                 doubleShotActive = false;
                 powerUpTimerEl.style.display = 'none';
-            }, powerUpDuration); // V12.0: 10秒
+            }, powerUpDuration); 
         }
-
-        function playSound(type) { /* ... */ }
 
         function animate() {
             animationId = requestAnimationFrame(animate); 
@@ -442,14 +478,15 @@
             player.x = Math.max(player.radius, Math.min(player.x, canvas.width - player.radius));
             player.y = Math.max(player.radius, Math.min(player.y, canvas.height - player.radius));
 
-            // 繪製玩家
+            // V16.0 Bug Fix: 玩家繪製也加入 save/restore
+            ctx.save();
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2, false);
             ctx.fillStyle = 'white';
             ctx.shadowBlur = 20;
             ctx.shadowColor = 'white';
             ctx.fill();
-            ctx.shadowBlur = 0;
+            ctx.restore();
 
             // 射擊邏輯
             if (frames % 8 === 0) {
@@ -506,14 +543,15 @@
                     const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
                     
                     if (dist - enemy.radius - projectile.radius < 1) {
-                        // V15.0: 打擊回饋 - 爆炸尺寸縮小到 3
+                        // 打擊回饋
                         createExplosion(projectile.x, projectile.y, enemy.color, 3); 
                         projectiles.splice(i, 1);
                         i--;
+                        playSound('hit'); // 增加 hit sound 呼叫
 
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
-                            if (Math.random() < 0.05) { // V12.0: 道具掉落率 5%
+                            if (Math.random() < 0.05) { 
                                 powerUps.push(new PowerUp(enemy.x, enemy.y, 'doubleShot'));
                             }
                             score += enemy.scoreValue; 
