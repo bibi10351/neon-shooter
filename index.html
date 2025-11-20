@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V5.0 (Bug Fix)</title>
+    <title>Gemini 霓虹戰機 V6.0 (High Score)</title>
     <style>
-        /* CSS 樣式與 V4.0 保持一致 */
+        /* CSS 樣式與 V5.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
@@ -75,6 +75,13 @@
             text-align: center;
             line-height: 1.6;
         }
+        /* V6.0 新增: 最高分樣式 */
+        #high-score-display {
+            color: #ffaa00;
+            font-size: 20px;
+            margin-top: 20px;
+            text-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+        }
         #mobile-fire-button {
              display: none !important; 
         }
@@ -90,6 +97,7 @@
 
     <div id="start-screen">
         <h1 style="font-size: 60px; margin-bottom: 40px;">NEON SHOOTER</h1>
+        <div id="high-score-display">最高紀錄: 0</div>
         <button onclick="startGame()">開始任務</button>
         <div class="instructions">
             電腦使用：<b>滑鼠</b> 或 <b>方向鍵/WASD</b><br>
@@ -107,11 +115,11 @@
         const scoreEl = document.getElementById('score');
         const hpEl = document.getElementById('hp');
         const startScreen = document.getElementById('start-screen');
+        // V6.0: 抓取新的最高分顯示元素
+        const highScoreDisplayEl = document.getElementById('high-score-display');
 
-        // V5.0 FIX 2: 將 AudioContext 放在全域，只創建一次
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // 設定畫布大小
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
@@ -119,6 +127,9 @@
         let score = 0;
         let frames = 0;
         let isMobile = false;
+        // V6.0: 全域儲存最高分
+        let highScore = 0;
+        const HIGHSCORE_KEY = 'neonShooterHighScore'; // 儲存在 localStorage 的 key
 
         const player = {
             x: canvas.width / 2,
@@ -140,8 +151,28 @@
             isMobile = true;
         }
 
+        // V6.0 核心函式: 載入最高分
+        function loadHighScore() {
+            // 從 localStorage 讀取字串
+            const savedScore = localStorage.getItem(HIGHSCORE_KEY);
+            // 轉換成數字，如果沒有紀錄則設為 0
+            highScore = savedScore ? parseInt(savedScore, 10) : 0;
+            // 更新起始畫面顯示
+            highScoreDisplayEl.innerHTML = `最高紀錄: ${highScore}`;
+        }
+        
+        // V6.0 核心函式: 儲存最高分
+        function saveHighScore(currentScore) {
+            if (currentScore > highScore) {
+                highScore = currentScore;
+                // 將新的最高分轉換為字串後存入 localStorage
+                localStorage.setItem(HIGHSCORE_KEY, highScore.toString());
+                return true; // 返回 true 表示打破紀錄
+            }
+            return false; // 未打破紀錄
+        }
 
-        // --- 鍵盤與滑鼠事件 ---
+        // --- 鍵盤與滑鼠事件 --- (保持不變)
         window.addEventListener('keydown', (e) => {
             if (!isMobile) keys[e.key] = true;
             mouse.active = false;	
@@ -157,7 +188,7 @@
             }
         });
         
-        // --- 觸控事件 ---
+        // --- 觸控事件 --- (保持不變)
         canvas.addEventListener('touchstart', (e) => {
             if (gameRunning) {
                 e.preventDefault();
@@ -186,7 +217,7 @@
             player.y = canvas.height - 100;
         });
 
-        // --- 類別定義 ---
+        // --- 類別定義 --- (保持不變)
         
         class Projectile {
             constructor(x, y, velocity) {
@@ -272,7 +303,7 @@
             }
         }
 
-        // --- 遊戲核心邏輯 ---
+        // --- 遊戲核心邏輯 --- (保持不變)
         
         function spawnEnemies() {
             let interval = 100;
@@ -310,7 +341,6 @@
         }
 
         function playSound(type) {
-            // V5.0 FIX 2: 直接使用全域 audioCtx，不再重複創建
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
@@ -361,7 +391,7 @@
             player.x = Math.max(player.radius, Math.min(player.x, canvas.width - player.radius));
             player.y = Math.max(player.radius, Math.min(player.y, canvas.height - player.radius));
 
-            // 繪製玩家 (保持霓虹效果)
+            // 繪製玩家
             ctx.beginPath();
             ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2, false);
             ctx.fillStyle = 'white';
@@ -373,11 +403,10 @@
             // 自動射擊
             if (frames % 8 === 0) {
                 projectiles.push(new Projectile(player.x, player.y - 20, {x:0, y:-10}));
-                // V5.0: 修正音效 Bug 後，射擊音效將穩定輸出
                 playSound('shoot');
             }
 
-            // 更新粒子 (使用倒序迴圈進行安全刪除)
+            // 更新粒子
             for (let i = particles.length - 1; i >= 0; i--) {
                 const particle = particles[i];
                 if (particle.alpha <= 0) {
@@ -387,18 +416,16 @@
                 }
             }
             
-            // V5.0 FIX 1: 修正幽靈擊殺，使用安全的倒序迴圈進行子彈與敵人的碰撞處理
+            // 子彈與敵人的碰撞處理
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 const projectile = projectiles[i];
                 projectile.update();
                 
-                // 檢查是否超出邊界
                 if (projectile.y + projectile.radius < 0) {
                     projectiles.splice(i, 1);
                     continue; 
                 }
 
-                // 檢查子彈與敵人的碰撞
                 for (let j = enemies.length - 1; j >= 0; j--) {
                     const enemy = enemies[j];
                     const dist = Math.hypot(projectile.x - enemy.x, projectile.y - enemy.y);
@@ -406,8 +433,8 @@
                     if (dist - enemy.radius - projectile.radius < 1) {
                         // 1. 命中處理
                         createExplosion(projectile.x, projectile.y, enemy.color, 5);
-                        projectiles.splice(i, 1); // 刪除子彈
-                        i--; // 由於刪除了子彈，確保外層迴圈索引不會跳過下一個元素
+                        projectiles.splice(i, 1);
+                        i--;
 
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
@@ -415,9 +442,8 @@
                             score += 100;
                             scoreEl.innerHTML = score;
                             createExplosion(enemy.x, enemy.y, enemy.color, 15);
-                            enemies.splice(j, 1); // 刪除敵人
+                            enemies.splice(j, 1);
                         }
-                        // 子彈已摧毀，跳出內層敵人迴圈，檢查下一顆子彈
                         break;
                     }
                 }
@@ -432,18 +458,18 @@
                 const distPlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
                 if (distPlayer - enemy.radius - player.radius < 1) {
                     createExplosion(player.x, player.y, 'red', 20);
-                    enemies.splice(i, 1); // 刪除敵人
+                    enemies.splice(i, 1);
                     player.hp -= 20;	
                     hpEl.innerHTML = player.hp + "%";
                     
                     if (player.hp <= 0) {
-                        endGame();
+                        endGame(); // 遊戲結束
                     }
                 }
 
                 // 檢查敵人是否越界
                 if (enemy.y - enemy.radius > canvas.height) {
-                    enemies.splice(i, 1); // 刪除敵人
+                    enemies.splice(i, 1);
                 }
             }
 
@@ -466,15 +492,34 @@
             touch.x = player.x;
             touch.y = player.y;
 
+            // V6.0: 確保載入最高分
+            loadHighScore(); 
+
             animate();
         }
 
         function endGame() {
             gameRunning = false;
+            
+            // V6.0 核心邏輯: 處理最高分儲存與顯示
+            const newRecord = saveHighScore(score);
+
             startScreen.style.display = 'flex';
-            startScreen.querySelector('h1').innerHTML = `任務失敗<br><span style="font-size:30px">最終得分: ${score}</span>`;
+            
+            let message = `任務失敗<br><span style="font-size:30px">最終得分: ${score}</span>`;
+            if (newRecord) {
+                message = `恭喜！打破紀錄！<br><span style="font-size:30px">新紀錄: ${score}</span>`;
+            }
+            
+            startScreen.querySelector('h1').innerHTML = message;
             startScreen.querySelector('button').innerText = "再試一次";
+            
+            // V6.0: 遊戲結束後，更新起始畫面的最高分顯示
+            loadHighScore(); 
         }
+
+        // V6.0: 首次載入時，先載入最高分
+        loadHighScore();
         
     </script>
 </body>
