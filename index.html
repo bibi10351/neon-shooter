@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Gemini 霓虹戰機 V10.0 (Elite HP Enhancement)</title>
+    <title>Gemini 霓虹戰機 V11.0 (Balance Update)</title>
     <style>
-        /* CSS 樣式與 V9.0 保持一致 */
+        /* CSS 樣式與 V10.0 保持一致 */
         body {
             margin: 0;
             overflow: hidden;
@@ -146,7 +146,7 @@
         // V7.0 道具相關變數
         let powerUps = [];
         let doubleShotActive = false;
-        let powerUpDuration = 5000; 
+        let powerUpDuration = 10000; // V11.0: 雙重射擊持續時間改為 10 秒 (10000ms)
 
         const player = {
             x: canvas.width / 2,
@@ -256,14 +256,14 @@
         }
 
         class Enemy {
-            // V10.0: 建構式接收 initialHP 參數，不再自動計算 HP
+            // V10.0: 建構式接收 initialHP 參數
             constructor(x, y, radius, color, velocity, scoreValue = 100, initialHP) { 
                 this.x = x;
                 this.y = y;
                 this.radius = radius;
                 this.color = color;
                 this.velocity = velocity;
-                this.hp = initialHP;	// 直接使用傳入的 HP
+                this.hp = initialHP;	
                 this.scoreValue = scoreValue; 
             }
             draw() {
@@ -362,19 +362,19 @@
             if (score > 5000) interval = 40;
 
             if (frames % interval === 0) {
-                const isElite = Math.random() < 0.01; 
+                const isElite = Math.random() < 0.02; // V11.0: 精英出現率提高 2 倍 (2%)
 
                 let radius;
                 let color;
                 let scoreValue;
                 let velocity;
-                let initialHP; // V10.0: 新增 HP 變數
+                let initialHP; 
 
                 if (isElite) {
                     radius = 45; 
                     color = '#ffaa00'; 
                     scoreValue = 500; 
-                    initialHP = 15; // V10.0: 精英敵人固定 15 HP
+                    initialHP = 150; // V11.0: 精英敵人 HP 提高 10 倍 (150 HP)
                     velocity = {
                         x: (Math.random() - 0.5) * 1, 
                         y: Math.random() * 0.5 + 0.5 
@@ -383,7 +383,7 @@
                     radius = Math.random() * (30 - 10) + 10;
                     color = `hsl(${Math.random() * 360}, 50%, 50%)`;
                     scoreValue = 100; 
-                    initialHP = Math.ceil(radius / 10); // 普通敵人依半徑計算
+                    initialHP = Math.ceil(radius / 10); 
                     velocity = {
                         x: (Math.random() - 0.5) * 2,
                         y: Math.random() * 2 + 1 + (score/5000)
@@ -393,7 +393,6 @@
                 let x = Math.random() * (canvas.width - radius * 2) + radius;
                 let y = -radius;
                 
-                // V10.0: 傳入 initialHP
                 enemies.push(new Enemy(x, y, radius, color, velocity, scoreValue, initialHP));
             }
         }
@@ -549,8 +548,8 @@
 
                         enemy.hp -= 1;
                         if (enemy.hp <= 0) {
-                            // 敵人死亡時機率掉落道具 (V7.0)
-                            if (Math.random() < 0.2) { 
+                            // 敵人死亡時機率掉落道具 
+                            if (Math.random() < 0.05) { // V11.0: 雙重射擊掉落率減為 5%
                                 powerUps.push(new PowerUp(enemy.x, enemy.y, 'doubleShot'));
                             }
                             
